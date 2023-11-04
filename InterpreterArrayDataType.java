@@ -45,7 +45,9 @@ public class InterpreterArrayDataType extends InterpreterDataType implements Map
 
     @Override
     public InterpreterDataType get(Object key) {
-        return arrayData.get(key);
+        InterpreterDataType value = arrayData.get(key);
+        if (value == null) throw new NullPointerException("");
+        return value;
     }
 
     @Override

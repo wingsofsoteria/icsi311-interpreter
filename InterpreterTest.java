@@ -1,13 +1,24 @@
 import org.junit.jupiter.api.Test;
-import parser.Parser;
+import parser.*;
 import parser.lexer.Lexer;
 
 import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.fail;
 
 public class InterpreterTest {
+
+    private static final String testProgram = "# Test Program by Virtue Kaden\n" +
+            "# RS is default\n" + "\n\n\n" +
+            "BEGIN { FS=\",\"; print(\"Hello World!\n\"); };\n" +
+            "$1 ~ `p[el]` { print($0); };\n" +
+            "function sum(one, two, three) { return one + two + three };\n" +
+            "{test = (1 > 2 ? sum(0, 2, 4) : 5 % 3)};\n" +
+            "END { print(\"Goodbye World!\n\"); }";
 
     //I included the parser changes for this assignment in the last assignment by sheer coincidence (my ParserTest was failing due to some builtin function calls)
     @Test
@@ -265,4 +276,28 @@ public class InterpreterTest {
 
     }
 
+    @Test
+    public void IDTTest() throws Exception {
+        Interpreter interpreter = new Interpreter(new Parser(new Lexer(testProgram).Lex()).parse(), "./input.txt");
+        ProgramNode programNode = interpreter.programNode;
+        System.out.println(programNode);
+        List<BlockNode> begin = programNode.getBeginNodes();
+        HashMap<String, InterpreterDataType> localVariables = new HashMap<>();
+        assertEquals(new InterpreterDataType(" "), interpreter.globalVariableMap.get("FS"));
+        assertEquals(new InterpreterDataType(","), interpreter.getIDT(begin.get(0).getNodes().get(0), localVariables));
+        assertEquals(new InterpreterDataType(","), interpreter.globalVariableMap.get("FS"));
+        assertEquals(new InterpreterDataType(""), interpreter.getIDT(begin.get(0).getNodes().get(1), localVariables));
+        localVariables.clear();
+        List<BlockNode> misc = programNode.getMiscNodes();
+        assertEquals(new InterpreterDataType("0"), interpreter.getIDT(misc.get(0).getCondition().get(), localVariables));
+        assertEquals(new InterpreterDataType("2.0"), interpreter.getIDT(misc.get(1).getNodes().get(0), localVariables));
+        assertEquals(new InterpreterDataType("2.0"), localVariables.get("test"));
+
+
+    }
+
+    @Test
+    public void constantIDTTest() {
+
+    }
 }
