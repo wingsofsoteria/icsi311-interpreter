@@ -81,44 +81,79 @@ public class Interpreter {
         functionDefinitions.put("toupper", toupperDefinition());
     }
 
+    /**
+     * Takes a Node and returns an InterpreterDataType
+     * @param baseNode the node to process
+     * @param localVariables a list of local variables for reading and writing to
+     * @return an InterpreterDataType
+     * @throws Exception if baseNode is a patternNode
+     */
     public InterpreterDataType getIDT(Node baseNode, HashMap<String, InterpreterDataType> localVariables) throws Exception {
         if (baseNode instanceof AssignmentNode node) return getAssignmentIDT(node, localVariables);
         if (baseNode instanceof ConstantNode node) return new InterpreterDataType(node.getValue());
         if (baseNode instanceof FunctionCallNode node) return new InterpreterDataType(callFunction(node, localVariables));
-        if (baseNode instanceof PatternNode) throw new Exception("");
+        if (baseNode instanceof PatternNode) throw new Exception("PatternNode cannot be processed into a valid data type");
         if (baseNode instanceof TernaryNode node) return getTernaryIDT(node, localVariables);
         if (baseNode instanceof VariableReferenceNode node) return getVariableIDT(node, localVariables);
         if (baseNode instanceof OperationNode node) return getOperationIDT(node, localVariables);
         return null;
     }
 
-    private InterpreterDataType dollarFunction(InterpreterDataType data) throws Exception {
+    /**
+     * helper function to grab globals
+     * @param data an InterpreterDataType containing the variable name, in this case a number
+     * @return an InterpreterDataType containing the value held in the variable
+     * @throws Exception if the variable does not exist
+     */
+    private InterpreterDataType getDollarVariable(InterpreterDataType data) throws Exception {
         InterpreterDataType dollarVal = globalVariableMap.get("$" + data.getData());
-        if (dollarVal == null) throw new Exception("");
+        if (dollarVal == null) throw new Exception("Variable: $" + data.getData() + " is uninitialized");
         return dollarVal;
     }
 
+    /**
+     * checks an array to see if value is in it
+     * @param value the value to check
+     * @param operationNode the array to check
+     * @param localVariables a list of local variables to locate the array
+     * @return an InterpreterDataType containing 1 for true and 0 for false
+     * @throws Exception if operationNode is not an array
+     */
     private InterpreterDataType arrayMatcher(InterpreterDataType value, OperationNode operationNode, HashMap<String, InterpreterDataType> localVariables) throws Exception {
-        if (!(operationNode.getRightHand().get() instanceof VariableReferenceNode array)) throw new Exception("");
+        if (!(operationNode.getRightHand().get() instanceof VariableReferenceNode array)) throw new Exception(operationNode.getRightHand() + " is not a valid array");
         InterpreterDataType arrayData = localVariables.getOrDefault(array.getName(), globalVariableMap.get(array.getName()));
-        if (!(arrayData instanceof InterpreterArrayDataType actualArrayData)) throw new Exception("");
-        return actualArrayData.get(value.getData());
+        if (!(arrayData instanceof InterpreterArrayDataType actualArrayData)) throw new Exception(array + " is not a valid array");
+        return new InterpreterDataType(actualArrayData.containsKey(value.getData()) ? "1" : "0");
     }
 
-    private boolean patternMatcher(InterpreterDataType left, OperationNode node, HashMap<String, InterpreterDataType> localVariables) throws Exception {
-        if (!(node.getRightHand().get() instanceof PatternNode patternNode)) throw new Exception("");
+    /**
+     * matches a regex expression in node to the value in left
+     * @param left the string to match the pattern to
+     * @param node the regex to match the pattern to
+     * @return true if a match was found
+     * @throws Exception if node is not a patternNode
+     */
+    private boolean patternMatcher(InterpreterDataType left, OperationNode node) throws Exception {
+        if (!(node.getRightHand().get() instanceof PatternNode patternNode)) throw new Exception(node.getRightHand() + " must be a PatternNode");
         Pattern pattern = Pattern.compile(patternNode.getValue());
         Matcher matcher = pattern.matcher(left.getData());
         return matcher.find();
     }
 
+    /**
+     * takes an OperationNode and builds an InterpreterDataType
+     * @param node the OperationNode to process
+     * @param localVariables the local variables to write and read
+     * @return an InterpreterDataType
+     * @throws Exception if node is invalid
+     */
     private InterpreterDataType getOperationIDT(OperationNode node, HashMap<String,InterpreterDataType> localVariables) throws Exception {
         InterpreterDataType returnData = new InterpreterDataType();
         if (node.getLeftHand().isEmpty()) {
-            if (node.getRightHand().isEmpty()) throw new Exception("");
+            if (node.getRightHand().isEmpty()) throw new Exception(node + " is an invalid OperationNode");
             //$ ! - + ++ --
             InterpreterDataType data = getIDT(node.getRightHand().get(), localVariables);
-            if (node.getOperation() == OperationNode.Operation.DOLLAR) return dollarFunction(data);
+            if (node.getOperation() == OperationNode.Operation.DOLLAR) return getDollarVariable(data);
             switch (node.getOperation()) {
                 case NEG -> returnData.setData(data.negate());
                 case SUB -> returnData.setData(data.floatNegate());
@@ -133,16 +168,12 @@ public class Interpreter {
         if (node.getRightHand().isEmpty()) {
             if (node.getOperation() == OperationNode.Operation.POSTINC) left.increment();
             else if (node.getOperation() == OperationNode.Operation.POSTDEC) left.decrement();
-            else throw new Exception();
+            else throw new Exception(node.getOperation() + " requires right hand expression");
             return left;
         }
-        if (node.getOperation() == OperationNode.Operation.IN) {
-            return arrayMatcher(left, node, localVariables);
-        } else if (node.getOperation() == OperationNode.Operation.MATCH) {
-            return new InterpreterDataType(patternMatcher(left, node, localVariables) ? "1" : "0");
-        } else if (node.getOperation() == OperationNode.Operation.NOTMATCH) {
-            return new InterpreterDataType(patternMatcher(left, node, localVariables) ? "0" : "1");
-        }
+        if (node.getOperation() == OperationNode.Operation.IN) return arrayMatcher(left, node, localVariables);
+        else if (node.getOperation() == OperationNode.Operation.MATCH) return new InterpreterDataType(patternMatcher(left, node) ? "1" : "0");
+        else if (node.getOperation() == OperationNode.Operation.NOTMATCH) return new InterpreterDataType(patternMatcher(left, node) ? "0" : "1");
         InterpreterDataType right = getIDT(node.getRightHand().get(), localVariables);
         returnData.setData(switch (node.getOperation()) {
             case EXP -> left.pow(right);
@@ -165,25 +196,52 @@ public class Interpreter {
         return returnData;
     }
 
+    /**
+     * takes an VariableReferenceNode and builds an InterpreterDataType
+     * @param node the VariableReferenceNode to process
+     * @param localVariables the local variables to write and read
+     * @return an InterpreterDataType
+     * @throws Exception if node is invalid
+     */
     private InterpreterDataType getVariableIDT(VariableReferenceNode node, HashMap<String, InterpreterDataType> localVariables) throws Exception {
         InterpreterDataType data = localVariables.getOrDefault(node.getName(), globalVariableMap.get(node.getName()));
-        if (data == null) throw new Exception("");
+        if (data == null) throw new Exception(node + " is not initialized");
         if (node.getValue().isEmpty()) return data;
-        if (!(data instanceof InterpreterArrayDataType array)) throw new Exception("");
+        if (!(data instanceof InterpreterArrayDataType array)) throw new Exception("Cannot index a non-array variable");
         InterpreterDataType index = getIDT(node.getValue().get(), localVariables);
-        if (!array.containsKey(index.getData())) throw new Exception("");
+        if (!array.containsKey(index.getData())) throw new IndexOutOfBoundsException(index + " is not a valid index for " + node.getName());
         return array.get(index.getData());
     }
 
+    /**
+     * takes a TernaryNode and builds an InterpreterDataType
+     * @param node the TernaryNode to process
+     * @param localVariables the local variables to write and read
+     * @return an InterpreterDataType
+     * @throws Exception if node is invalid
+     */
     private InterpreterDataType getTernaryIDT(TernaryNode node, HashMap<String, InterpreterDataType> localVariables) throws Exception {
         InterpreterDataType boolCondition = getIDT(node.getCondition(), localVariables);
         return boolCondition.toBool() ? getIDT(node.getCaseTrue(), localVariables) : getIDT(node.getCaseFalse(), localVariables);
     }
 
+    /**
+     * takes a FunctionCallNode and executes it
+     * @param node the FunctionCallNode to process
+     * @param localVariables the local variables to pass to the function
+     * @return a String
+     */
     private String callFunction(FunctionCallNode node, HashMap<String,InterpreterDataType> localVariables) {
         return "";
     }
 
+    /**
+     * takes an AssignmentNode and builds an InterpreterDataType
+     * @param node the AssignmentNode to process
+     * @param localVariables the local variables to write and read
+     * @return an InterpreterDataType
+     * @throws Exception if node is invalid
+     */
     private InterpreterDataType getAssignmentIDT(AssignmentNode node, HashMap<String, InterpreterDataType> localVariables) throws Exception {
         InterpreterDataType value = getIDT(node.getExpression(), localVariables);
 
@@ -191,18 +249,11 @@ public class Interpreter {
             if (globalVariableMap.containsKey(variable.getName())) {
                 globalVariableMap.put(variable.getName(), value);
                 if (variable.getName().equals("FS")) lineManager.reset();
-
-            } else {
-                localVariables.put(variable.getName(), value);
-            }
+            } else localVariables.put(variable.getName(), value);
         } else if (node.getTarget() instanceof OperationNode variable) {
-            if (variable.getOperation() != OperationNode.Operation.DOLLAR) {
-                throw new Exception("");
-            }
+            if (variable.getOperation() != OperationNode.Operation.DOLLAR) throw new Exception("Expression cannot be assigned to");
             globalVariableMap.put("$" + variable.getLeftHand().get(), value);
-        } else {
-            throw new Exception("");
-        }
+        } else throw new IllegalStateException("Assignment target cannot be " + node.getClass().getName());
 
         return value;
     }
