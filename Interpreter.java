@@ -3,8 +3,7 @@ import parser.*;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.HashMap;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -81,6 +80,125 @@ public class Interpreter {
         functionDefinitions.put("toupper", toupperDefinition());
     }
 
+    public ReturnType processStatement(HashMap<String, InterpreterDataType> localVariables, Node statement) throws Exception {
+
+        if (statement instanceof BreakNode) {
+            return new ReturnType(ReturnType.Types.Break);
+        }
+        if (statement instanceof ContinueNode) {
+            return new ReturnType(ReturnType.Types.Continue);
+        }
+        if (statement instanceof DeleteNode node) {
+            processDeleteStatement(node, localVariables);
+            return new ReturnType(ReturnType.Types.None);
+        }
+        if (statement instanceof DoWhileNode node) {
+            if (node.getWhileStatements().isEmpty()) return new ReturnType(ReturnType.Types.None);
+            do {
+                ReturnType returnType = interpretStatementList(node.getWhileStatements().get().getNodes(), localVariables);
+                if (returnType.getReturnType() == ReturnType.Types.Break) {
+                    break;
+                } else if (returnType.getReturnType() == ReturnType.Types.Return) {
+                    return returnType;
+                }
+            } while (getIDT(node.getConditionNode(), localVariables).toBool());
+        }
+        if (statement instanceof ForNode node) {
+            return processForStatement(node, localVariables);
+        }
+        if (statement instanceof IfNode node) {
+            IfNode next = node;
+            while (next.getCondition().isPresent() && !getIDT(next.getCondition().get(), localVariables).toBool()) {
+                if (next.getNextNode().isEmpty()) {
+                    break;
+                }
+                next = next.getNextNode().get();
+            }
+
+            if (next.getStatementNodes().isEmpty()) return new ReturnType(ReturnType.Types.None);
+            ReturnType returnType = interpretStatementList(next.getStatementNodes().get().getNodes(), localVariables);
+            if (returnType.getReturnType() != ReturnType.Types.None) {
+                return returnType;
+            }
+        }
+        if (statement instanceof ReturnNode node) {
+            String value = "";
+            if (node.getReturnValue().isPresent()) {
+                value = getIDT(node.getReturnValue().get(), localVariables).getData();
+            }
+            return new ReturnType(ReturnType.Types.Return, value);
+        }
+        if (statement instanceof WhileNode node) {
+            if (node.getWhileStatements().isEmpty()) return new ReturnType(ReturnType.Types.None);
+            while (getIDT(node.getConditionNode(), localVariables).toBool()) {
+                ReturnType returnType = interpretStatementList(node.getWhileStatements().get().getNodes(), localVariables);
+                if (returnType.getReturnType() == ReturnType.Types.Break) {
+                    break;
+                } else if (returnType.getReturnType() == ReturnType.Types.Return) {
+                    return returnType;
+                }
+            }
+        }
+        InterpreterDataType value = getIDT(statement, localVariables);
+        return new ReturnType(ReturnType.Types.None, value.getData());
+    }
+
+    private ReturnType processForStatement(ForNode node, HashMap<String, InterpreterDataType> localVariables) throws Exception {
+        if (node.getCodeBlock().isEmpty()) return new ReturnType(ReturnType.Types.None);
+        Optional<Node> expression;
+        if ((expression = node.getInitializationExpression()).isPresent() && expression.get() instanceof StatementNode) {
+            processStatement(localVariables, expression.get());
+        }
+        boolean condition = node.getConditionExpression().isEmpty() || getIDT(node.getConditionExpression().get(), localVariables).toBool();
+
+        while (condition) {
+            ReturnType returnType = interpretStatementList(node.getCodeBlock().get().getNodes(), localVariables);
+            if (returnType.getReturnType() == ReturnType.Types.Break) {
+                break;
+            } else if (returnType.getReturnType() == ReturnType.Types.Return) {
+                return returnType;
+            }
+            if (node.getModificationExpression().isPresent()) {
+                processStatement(localVariables, node.getModificationExpression().get());
+            }
+            condition = node.getConditionExpression().isEmpty() || getIDT(node.getConditionExpression().get(), localVariables).toBool();
+        }
+        return new ReturnType(ReturnType.Types.None);
+    }
+
+    private ReturnType interpretStatementList(List<StatementNode> statements, HashMap<String, InterpreterDataType> localVariables) throws Exception {
+        for (StatementNode statement : statements) {
+            ReturnType returnType = processStatement(localVariables, statement);
+            if (returnType.getReturnType() != ReturnType.Types.None) {
+                return returnType;
+            }
+        }
+        return new ReturnType(ReturnType.Types.None);
+    }
+
+    private void processDeleteStatement(DeleteNode node, HashMap<String, InterpreterDataType> localVariables) throws Exception {
+        {
+            if (!(node.getDeleteParameter() instanceof VariableReferenceNode array)) throw new IllegalArgumentException("Tried deleting element from " + node.getDeleteParameter().getClass().getName());
+
+            InterpreterDataType value = localVariables.getOrDefault(array.getName(), globalVariableMap.get(array.getName()));
+
+            if (value == null) throw new Exception("Variable " + array.getName() + " does not exist");
+
+            if (array.getValue().isEmpty()) {
+                InterpreterDataType removedValue = localVariables.remove(array.getName());
+                if (removedValue == null) {
+                    globalVariableMap.remove(array.getName());
+                }
+            } else {
+                if (!(value instanceof InterpreterArrayDataType arrayData)) throw new IllegalArgumentException("Tried deleting element from non-array variable");
+                Node index = array.getValue().get();
+                InterpreterDataType indexData = getIDT(index, localVariables);
+                arrayData.remove(indexData.getData());
+            }
+        }
+    }
+
+
     /**
      * Takes a Node and returns an InterpreterDataType
      * @param baseNode the node to process
@@ -96,7 +214,7 @@ public class Interpreter {
         if (baseNode instanceof TernaryNode node) return getTernaryIDT(node, localVariables);
         if (baseNode instanceof VariableReferenceNode node) return getVariableIDT(node, localVariables);
         if (baseNode instanceof OperationNode node) return getOperationIDT(node, localVariables);
-        return null;
+        throw new IllegalStateException("Tried getting IDT from invalid node " + baseNode.getClass().getName());
     }
 
     /**
