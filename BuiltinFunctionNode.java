@@ -17,7 +17,7 @@ public class BuiltinFunctionNode extends FunctionNode {
      * @param parameters the function arguments
      */
     public BuiltinFunctionNode(String name, List<String> parameters, boolean variadic, Function<HashMap<String, InterpreterDataType>, String> functionDefinition) {
-        super(name, parameters, Optional.empty());
+        super(name, parameters, Optional.empty(), variadic);
         this.variadic = variadic;
         this.execute = functionDefinition;
     }

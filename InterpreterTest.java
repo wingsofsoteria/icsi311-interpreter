@@ -1,71 +1,63 @@
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import parser.*;
+import parser.Parser;
 import parser.lexer.Lexer;
 
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.fail;
 
 public class InterpreterTest {
 
-    private static final String testProgram = "# Test Program by Virtue Kaden\n" +
-            "# RS is default\n" + "\n\n\n" +
-            "BEGIN { FS=\",\"; print(\"Hello World!\n\"); };\n" +
-            "$1 ~ `p[el]` { print($0); };\n" +
-            "function sum(one, two, three) { return one + two + three };\n" +
-            "{test = (1 > 2 ? sum(0, 2, 4) : 5 % 3)};\n" +
-            "END { print(\"Goodbye World!\n\"); }";
+    //allows testing standard out
+    private static final ByteArrayOutputStream OUT = new ByteArrayOutputStream();
+    private static final PrintStream ORIG = System.out;
+
+    @BeforeAll
+    public static void setOutput() {
+
+        System.setOut(new PrintStream(OUT));
+
+    }
+
+    @AfterAll
+    public static void restoreOutput() {
+        System.setOut(ORIG);
+    }
 
     //I included the parser changes for this assignment in the last assignment by sheer coincidence (my ParserTest was failing due to some builtin function calls)
     @Test
-    public void printfTest() {
-        try {
-            Interpreter interpreter = new Interpreter(new Parser(new Lexer("{ printf(\"%-10s %s\", $1, $2)}").Lex()).parse(), "input.txt");
-            BuiltinFunctionNode printf = (BuiltinFunctionNode) interpreter.functionDefinitions.get("printf");
-            HashMap<String, InterpreterDataType> args = new HashMap<>();
-            InterpreterArrayDataType argData = new InterpreterArrayDataType();
-            argData.put("0", new InterpreterDataType("$1"));
-            argData.put("1", new InterpreterDataType("$2"));
-            args.put("fmt", new InterpreterDataType("%-10s %s\n"));
-            args.put("args", argData);
-            printf.execute(args);
-            args.clear();
-            argData.clear();
-            argData.put("0", new InterpreterDataType("test"));
-            args.put("fmt", new InterpreterDataType("Hello World!\n"));
-            printf.execute(args);
-            args.put("fmt", new InterpreterDataType("%s hehe\n"));
-            args.put("args", argData);
-            printf.execute(args);
-        } catch (Exception e) {
-            e.printStackTrace(System.err);
-            fail();
-        }
+    public void printfTest() throws Exception {
+        OUT.reset();
+        Interpreter interpreter = new Interpreter(new Parser(new Lexer("BEGIN {FS=\",\"}{ printf(\"%.3s %s \", $1, $2)}").Lex()).parse(), "input.txt");
+        interpreter.interpretProgram();
+        assertEquals("AMe 555-5553 ANT 555-3412 BEC 555-7685 bil 555-1675 BRO 555-0542 caM 555-2912 faB 555-1234 jUl 555-6699 mar 555-6480 Sam 555-3430 jEA 555-2127 ", OUT.toString());
     }
 
     @Test
-    public void printTest() {
-        try {
-            Interpreter interpreter = new Interpreter(new Parser(new Lexer("{ print($1, $2)}").Lex()).parse(), "input.txt");
-            BuiltinFunctionNode print = (BuiltinFunctionNode) interpreter.functionDefinitions.get("print");
-            HashMap<String, InterpreterDataType> args = new HashMap<>();
-            InterpreterArrayDataType argData = new InterpreterArrayDataType();
-            argData.put("0", new InterpreterDataType("$1"));
-            argData.put("1", new InterpreterDataType("$2"));
-            args.put("args", argData);
-            print.execute(args);
-            argData.put("2", argData.get("1"));
-            argData.put("1", new InterpreterDataType(" - spacer - "));
-            args.put("args", argData);
-            print.execute(args);
-        } catch (Exception e) {
-            e.printStackTrace(System.err);
-            fail();
-        }
+    public void printTest() throws Exception {
+        OUT.reset();
+        Interpreter interpreter = new Interpreter(new Parser(new Lexer("BEGIN {FS=\",\"}{ print($1, $2)}").Lex()).parse(), "input.txt");
+        interpreter.interpretProgram();
+        String output = OUT.toString().replaceAll("\r", "");
+
+        assertEquals("AMeLIA 555-5553\n" +
+                "ANThoNY 555-3412\n" +
+                "BECKY 555-7685\n" +
+                "bilL 555-1675\n" +
+                "BROdeRIck 555-0542\n" +
+                "caMILlA 555-2912\n" +
+                "faBiUS 555-1234\n" +
+                "jUlIE 555-6699\n" +
+                "martIn 555-6480\n" +
+                "SamUEl 555-3430\n" +
+                "jEAN-Paul 555-2127\n", output);
     }
 
     @Test
@@ -75,10 +67,10 @@ public class InterpreterTest {
             BuiltinFunctionNode getline = (BuiltinFunctionNode) interpreter.functionDefinitions.get("getline");
             HashMap<String, InterpreterDataType> args = new HashMap<>();
             assertEquals("1", getline.execute(args));
-            assertEquals("Anthony 555-3412", interpreter.globalVariableMap.get("$0").getData());
-            assertEquals("2", interpreter.globalVariableMap.get("NF").getData());
-            assertEquals("2", interpreter.globalVariableMap.get("NR").getData());
-            assertEquals("2", interpreter.globalVariableMap.get("FNR").getData());
+            assertEquals("ANThoNY,555-3412", interpreter.globalVariableMap.get("$0").getData());
+            assertEquals("1", interpreter.globalVariableMap.get("NF").getData());
+            assertEquals("1", interpreter.globalVariableMap.get("NR").getData());
+            assertEquals("1", interpreter.globalVariableMap.get("FNR").getData());
         } catch (Exception e) {
             e.printStackTrace(System.err);
             fail();
@@ -93,10 +85,10 @@ public class InterpreterTest {
             BuiltinFunctionNode getline = (BuiltinFunctionNode) interpreter.functionDefinitions.get("getline");
             HashMap<String, InterpreterDataType> args = new HashMap<>();
             assertEquals("1", getline.execute(args));
-            assertEquals("Anthony 555-3412", interpreter.globalVariableMap.get("$0").getData());
-            assertEquals("2", interpreter.globalVariableMap.get("NF").getData());
-            assertEquals("2", interpreter.globalVariableMap.get("NR").getData());
-            assertEquals("2", interpreter.globalVariableMap.get("FNR").getData());
+            assertEquals("ANThoNY,555-3412", interpreter.globalVariableMap.get("$0").getData());
+            assertEquals("1", interpreter.globalVariableMap.get("NF").getData());
+            assertEquals("1", interpreter.globalVariableMap.get("NR").getData());
+            assertEquals("1", interpreter.globalVariableMap.get("FNR").getData());
         } catch (Exception e) {
             e.printStackTrace(System.err);
             fail();
@@ -105,199 +97,152 @@ public class InterpreterTest {
     }
 
     @Test
-    public void gsubTest() {
-        try {
-            Interpreter interpreter = new Interpreter(new Parser(new Lexer("{ gsub(`a`, \"x\", $1) }").Lex()).parse(), "input.txt");
-            BuiltinFunctionNode gsub = (BuiltinFunctionNode) interpreter.functionDefinitions.get("gsub");
-            HashMap<String, InterpreterDataType> args = new HashMap<>();
-            args.put("regexp", new InterpreterDataType("[aA]"));
-            args.put("replacement", new InterpreterDataType("x"));
-            args.put("target", new InterpreterDataType("$1"));
-            gsub.execute(args);
-            assertEquals("xmelix", interpreter.globalVariableMap.get("$1").getData());
-            args.remove("target");
-            gsub.execute(args);
+    public void gsubTest() throws Exception {
+        OUT.reset();
+        Interpreter interpreter = new Interpreter(new Parser(new Lexer("BEGIN {FS=\",\"}{ gsub(\"a\", \"x\"); print; }").Lex()).parse(), "input.txt");
+        interpreter.interpretProgram();
+        String output = OUT.toString().replaceAll("\r", "");
+        assertEquals("AMeLIA,555-5553\n" +
+                "ANThoNY,555-3412\n" +
+                "BECKY,555-7685\n" +
+                "bilL,555-1675\n" +
+                "BROdeRIck,555-0542\n" +
+                "cxMILlA,555-2912\n" +
+                "fxBiUS,555-1234\n" +
+                "jUlIE,555-6699\n" +
+                "mxrtIn,555-6480\n" +
+                "SxmUEl,555-3430\n" +
+                "jEAN-Pxul,555-2127\n", output);
+    }
 
-            assertEquals("xmelix 555-5553", interpreter.globalVariableMap.get("$0").getData());
-        } catch (Exception e) {
-            e.printStackTrace(System.err);
-            fail();
-        }
+    @Test
+    public void subTest() throws Exception {
+        OUT.reset();
+        Interpreter interpreter = new Interpreter(new Parser(new Lexer("BEGIN {FS=\",\"}{ sub(\"[aA]\", \"x\"); print; }").Lex()).parse(), "input.txt");
+        interpreter.interpretProgram();
+        String output = OUT.toString().replaceAll("\r", "");
+        assertEquals("xMeLIA,555-5553\n" +
+                "xNThoNY,555-3412\n" +
+                "BECKY,555-7685\n" +
+                "bilL,555-1675\n" +
+                "BROdeRIck,555-0542\n" +
+                "cxMILlA,555-2912\n" +
+                "fxBiUS,555-1234\n" +
+                "jUlIE,555-6699\n" +
+                "mxrtIn,555-6480\n" +
+                "SxmUEl,555-3430\n" +
+                "jExN-Paul,555-2127\n", output);
+    }
+
+    @Test
+    public void matchTest() throws Exception {
+        OUT.reset();
+        Interpreter interpreter = new Interpreter(new Parser(new Lexer("BEGIN {FS=\",\"}{ match($0, \"[0-9]+\"); print RSTART RLENGTH;  }").Lex()).parse(), "input.txt");
+        interpreter.interpretProgram();
+        String output = OUT.toString().replaceAll("\r", "");
+        assertEquals("83\n93\n73\n63\n113\n93\n83\n73\n83\n83\n113\n", output);
+
+    }
+
+    @Test
+    public void indexTest() throws Exception {
+        OUT.reset();
+        Interpreter interpreter = new Interpreter(new Parser(new Lexer("{ print index($0, \",55\") }").Lex()).parse(), "input.txt");
+        interpreter.interpretProgram();
+        String output = OUT.toString().replaceAll("\r", "");
+        assertEquals("6\n7\n5\n4\n9\n7\n6\n5\n6\n6\n9\n", output);
+    }
+
+    @Test
+    public void lengthTest() throws Exception {
+            Interpreter interpreter = new Interpreter(new Parser(new Lexer("BEGIN {FS=\",\"}{ print length($1) }").Lex()).parse(), "input.txt");
+
+    }
+
+    @Test
+    public void splitTest() throws Exception {
+        OUT.reset();
+            Interpreter interpreter = new Interpreter(new Parser(new Lexer("{ split($0, array, \",\"); for (i in array) { printf \"%s \", array[i] } print \"\"; }").Lex()).parse(), "input.txt");
+            interpreter.interpretProgram();
+            String output = OUT.toString().replaceAll("\r", "");
+            assertEquals("AMeLIA 555-5553 \n" +
+                    "ANThoNY 555-3412 \n" +
+                    "BECKY 555-7685 \n" +
+                    "bilL 555-1675 \n" +
+                    "BROdeRIck 555-0542 \n" +
+                    "caMILlA 555-2912 \n" +
+                    "faBiUS 555-1234 \n" +
+                    "jUlIE 555-6699 \n" +
+                    "martIn 555-6480 \n" +
+                    "SamUEl 555-3430 \n" +
+                    "jEAN-Paul 555-2127 \n", output);
+
+    }
+
+    @Test
+    public void substrTest() throws Exception {
+        OUT.reset();
+
+        Interpreter interpreter = new Interpreter(new Parser(new Lexer("{ print substr($0, 3, 7) }").Lex()).parse(), "input.txt");
+        interpreter.interpretProgram();
+        String output = OUT.toString().replaceAll("\r", "");
+        assertEquals("eLIA,55\n" +
+                "ThoNY,5\n" +
+                "CKY,555\n" +
+                "lL,555-\n" +
+                "OdeRIck\n" +
+                "MILlA,5\n" +
+                "BiUS,55\n" +
+                "lIE,555\n" +
+                "rtIn,55\n" +
+                "mUEl,55\n" +
+                "AN-Paul\n", output);
+    }
+
+    @Test
+    public void tolowerTest() throws Exception {
+        Interpreter interpreter = new Interpreter(new Parser(new Lexer("BEGIN {FS=\",\"}{ print tolower($1) }").Lex()).parse(), "input.txt");
+
+    }
+
+    @Test
+    public void toupperTest() throws Exception {
+            Interpreter interpreter = new Interpreter(new Parser(new Lexer("BEGIN {FS=\",\"}{ print toupper($1) }").Lex()).parse(), "input.txt");
+
+    }
+
+    @Test
+    public void interpreterTest() throws Exception {
+        OUT.reset();
+        String program = Files.readString(Path.of("test.awk"));
+        Interpreter interpreter = new Interpreter(new Parser(new Lexer(program).Lex()).parse(), "input.txt");
+        interpreter.interpretProgram();
+        String output = OUT.toString().replaceAll("\r", "");
+        assertEquals("xxx: \n Amelia,555-5553\nxxx: \n Anthony,555-3412\nxxx: \n Becky,555-7685\nxxx: \n Bill,555-1675\nxxx: \n Broderick,555-0542\nxxx: \n Camilla,555-2912\nxxx: \n Fabius,555-1234\nxxx: \n Julie,555-6699\nxxx: \n Martin,555-6480\nxxx: \n Samuel,555-3430\nxxx: \n Jean-paul,555-2127\n", output);
 
 
     }
 
     @Test
-    public void subTest() {
-        try {
-            Interpreter interpreter = new Interpreter(new Parser(new Lexer("{ sub(`a`, \"x\", $1) }").Lex()).parse(), "input.txt");
-            BuiltinFunctionNode sub = (BuiltinFunctionNode) interpreter.functionDefinitions.get("sub");
-            HashMap<String, InterpreterDataType> args = new HashMap<>();
-            args.put("regexp", new InterpreterDataType("[aA]"));
-            args.put("replacement", new InterpreterDataType("x"));
-            args.put("target", new InterpreterDataType("$1"));
-            sub.execute(args);
-            assertEquals("xmelia", interpreter.globalVariableMap.get("$1").getData());
-            args.remove("target");
-            sub.execute(args);
-
-            assertEquals("xmelia 555-5553", interpreter.globalVariableMap.get("$0").getData());
-        } catch (Exception e) {
-            e.printStackTrace(System.err);
-            fail();
-        }
-
+    public void sumTest() throws Exception {
+        OUT.reset();
+        String program = Files.readString(Path.of("sum.awk"));
+        Interpreter interpreter = new Interpreter(new Parser(new Lexer(program).Lex()).parse(), "sum.txt");
+        interpreter.interpretProgram();
+        String output = OUT.toString().replaceAll("\r", "");
+        assertEquals("Line 1: 15.0\\nLine 2: 100.0\\nGrand Total: 115.0", output);
 
     }
 
     @Test
-    public void matchTest() {
-        try {
-            Interpreter interpreter = new Interpreter(new Parser(new Lexer("{ match() }").Lex()).parse(), "input.txt");
-            BuiltinFunctionNode match = (BuiltinFunctionNode) interpreter.functionDefinitions.get("match");
-            HashMap<String, InterpreterDataType> args = new HashMap<>();
-            args.put("regexp", new InterpreterDataType("e.*\\s\\d+"));
-            args.put("string", new InterpreterDataType("$0"));
-            assertEquals("2", match.execute(args));
-            assertEquals("3", interpreter.globalVariableMap.get("RSTART").getData());
-            assertEquals("8", interpreter.globalVariableMap.get("RLENGTH").getData());
-
-            args.put("regexp", new InterpreterDataType("x"));
-            assertEquals("0", match.execute(args));
-            assertEquals("0", interpreter.globalVariableMap.get("RSTART").getData());
-            assertEquals("-1", interpreter.globalVariableMap.get("RLENGTH").getData());
-        } catch (Exception e) {
-            e.printStackTrace(System.err);
-            fail();
-        }
-    }
-
-    @Test
-    public void indexTest() {
-        try {
-            Interpreter interpreter = new Interpreter(new Parser(new Lexer("{ index() }").Lex()).parse(), "input.txt");
-            BuiltinFunctionNode index = (BuiltinFunctionNode) interpreter.functionDefinitions.get("index");
-            HashMap<String, InterpreterDataType> args = new HashMap<>();
-            args.put("in", new InterpreterDataType("$0"));
-            args.put("find", new InterpreterDataType(" 55"));
-            assertEquals("6", index.execute(args));
-
-        } catch (Exception e) {
-            e.printStackTrace(System.err);
-            fail();
-        }
-    }
-
-    @Test
-    public void lengthTest() {
-        try {
-            Interpreter interpreter = new Interpreter(new Parser(new Lexer("{ length() }").Lex()).parse(), "input.txt");
-            BuiltinFunctionNode length = (BuiltinFunctionNode) interpreter.functionDefinitions.get("length");
-            HashMap<String, InterpreterDataType> args = new HashMap<>();
-            args.put("string", new InterpreterDataType("$1"));
-            assertEquals("6", length.execute(args));
-            args.put("string", new InterpreterDataType("test"));
-            assertEquals("4", length.execute(args));
-            args.put("string", null);
-            assertEquals("15", length.execute(args));
-            args.put("string", new InterpreterDataType(""));
-            assertEquals("0", length.execute(args));
-
-
-        } catch (Exception e) {
-            e.printStackTrace(System.err);
-            fail();
-        }
-    }
-
-    @Test
-    public void splitTest() {
-        try {
-            Interpreter interpreter = new Interpreter(new Parser(new Lexer("{ split() }").Lex()).parse(), "input.txt");
-            BuiltinFunctionNode split = (BuiltinFunctionNode) interpreter.functionDefinitions.get("split");
-            HashMap<String, InterpreterDataType> args = new HashMap<>();
-            args.put("string", new InterpreterDataType("$0"));
-            args.put("array", new InterpreterArrayDataType());
-            assertEquals("2", split.execute(args));
-            assertEquals("Amelia", ((InterpreterArrayDataType) args.get("array")).get("0").getData());
-
-            assertEquals("555-5553", ((InterpreterArrayDataType) args.get("array")).get("1").getData());
-
-        } catch (Exception e) {
-            e.printStackTrace(System.err);
-            fail();
-        }
+    public void wordsTest() throws Exception {
+        OUT.reset();
+        String program = Files.readString(Path.of("words.awk"));
+        Interpreter interpreter = new Interpreter(new Parser(new Lexer(program).Lex()).parse(), "words.txt");
+        interpreter.interpretProgram();
+        String output = OUT.toString().replaceAll("\r", "");
+        assertEquals("4\n0\n2\n", output);
 
     }
 
-    @Test
-    public void substrTest() {
-        try {
-            Interpreter interpreter = new Interpreter(new Parser(new Lexer("{ substr() }").Lex()).parse(), "input.txt");
-            BuiltinFunctionNode substr = (BuiltinFunctionNode) interpreter.functionDefinitions.get("substr");
-            HashMap<String, InterpreterDataType> args = new HashMap<>();
-            args.put("string", new InterpreterDataType("$0"));
-            args.put("start", new InterpreterDataType("3"));
-            args.put("length", new InterpreterDataType("7"));
-            assertEquals("lia 555", substr.execute(args));
-        } catch (Exception e) {
-            e.printStackTrace(System.err);
-            fail();
-        }
-    }
-
-    @Test
-    public void tolowerTest() {
-        try {
-            Interpreter interpreter = new Interpreter(new Parser(new Lexer("{ length() }").Lex()).parse(), "input.txt");
-            BuiltinFunctionNode tolower = (BuiltinFunctionNode) interpreter.functionDefinitions.get("tolower");
-            HashMap<String, InterpreterDataType> args = new HashMap<>();
-            args.put("string", new InterpreterDataType("$1"));
-            assertEquals("amelia", tolower.execute(args));
-        } catch (Exception e) {
-            e.printStackTrace(System.err);
-            fail();
-        }
-
-    }
-
-    @Test
-    public void toupperTest() {
-        try {
-            Interpreter interpreter = new Interpreter(new Parser(new Lexer("{ toupper() }").Lex()).parse(), "input.txt");
-            BuiltinFunctionNode toupper = (BuiltinFunctionNode) interpreter.functionDefinitions.get("toupper");
-            HashMap<String, InterpreterDataType> args = new HashMap<>();
-            args.put("string", new InterpreterDataType("$1"));
-            assertEquals("AMELIA", toupper.execute(args));
-        } catch (Exception e) {
-            e.printStackTrace(System.err);
-            fail();
-        }
-
-    }
-
-    @Test
-    public void IDTTest() throws Exception {
-        Interpreter interpreter = new Interpreter(new Parser(new Lexer(testProgram).Lex()).parse(), "./input.txt");
-        ProgramNode programNode = interpreter.programNode;
-        System.out.println(programNode);
-        List<BlockNode> begin = programNode.getBeginNodes();
-        HashMap<String, InterpreterDataType> localVariables = new HashMap<>();
-        assertEquals(new InterpreterDataType(" "), interpreter.globalVariableMap.get("FS"));
-        assertEquals(new InterpreterDataType(","), interpreter.getIDT(begin.get(0).getNodes().get(0), localVariables));
-        assertEquals(new InterpreterDataType(","), interpreter.globalVariableMap.get("FS"));
-        assertEquals(new InterpreterDataType(""), interpreter.getIDT(begin.get(0).getNodes().get(1), localVariables));
-        localVariables.clear();
-        List<BlockNode> misc = programNode.getMiscNodes();
-        assertEquals(new InterpreterDataType("0"), interpreter.getIDT(misc.get(0).getCondition().get(), localVariables));
-        assertEquals(new InterpreterDataType("2.0"), interpreter.getIDT(misc.get(1).getNodes().get(0), localVariables));
-        assertEquals(new InterpreterDataType("2.0"), localVariables.get("test"));
-
-
-    }
-
-    @Test
-    public void constantIDTTest() {
-
-    }
 }

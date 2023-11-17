@@ -39,11 +39,11 @@ public class InterpreterDataType implements Comparable<InterpreterDataType> {
     }
 
     public void increment() {
-        this.data = String.valueOf(Double.parseDouble(data) + 1);
+        this.data = String.valueOf(Integer.parseInt(data) + 1);
     }
 
     public void decrement() {
-        this.data = String.valueOf(Double.parseDouble(data) - 1);
+        this.data = String.valueOf(Integer.parseInt(data) - 1);
     }
 
     public String negate() {
@@ -75,6 +75,9 @@ public class InterpreterDataType implements Comparable<InterpreterDataType> {
     }
 
     public String add(InterpreterDataType rightSide) {
+        if (data.isEmpty()) return rightSide.data;
+        if (rightSide.data.isEmpty()) return data;
+
         double leftFloat = Double.parseDouble(data);
         double rightFloat = Double.parseDouble(rightSide.data);
         return String.valueOf(leftFloat + rightFloat);
