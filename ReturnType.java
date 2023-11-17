@@ -8,17 +8,17 @@ public class ReturnType {
         this.value = "";
     }
 
+    public ReturnType(Types type, String value) {
+        this(type);
+        this.value = value;
+    }
+
     public String getValue() {
         return value;
     }
 
     public Types getReturnType() {
         return returnType;
-    }
-
-    public ReturnType(Types type, String value) {
-        this(type);
-        this.value = value;
     }
 
     public enum Types {

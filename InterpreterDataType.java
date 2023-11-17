@@ -1,11 +1,3 @@
-import parser.ConstantNode;
-import parser.Node;
-import parser.OperationNode;
-import parser.PatternNode;
-
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
 /**
  * InterpreterDataType is the basic data type for the interpreter
  */
@@ -114,7 +106,7 @@ public class InterpreterDataType implements Comparable<InterpreterDataType> {
         try {
             Double leftFloat = Double.parseDouble(data);
             Double rightFloat = Double.parseDouble(o.data);
-           return leftFloat.compareTo(rightFloat);
+            return leftFloat.compareTo(rightFloat);
         } catch (Exception ignored) {
             return data.compareTo(o.data);
         }

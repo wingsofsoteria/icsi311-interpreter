@@ -1,4 +1,3 @@
-import parser.BlockNode;
 import parser.FunctionNode;
 
 import java.util.HashMap;
@@ -9,7 +8,8 @@ import java.util.function.Function;
 public class BuiltinFunctionNode extends FunctionNode {
 
     private Function<HashMap<String, InterpreterDataType>, String> execute;
-    private final boolean variadic;
+    private boolean variadic;
+
     /**
      * constructs a FunctionNode
      *
@@ -18,7 +18,6 @@ public class BuiltinFunctionNode extends FunctionNode {
      */
     public BuiltinFunctionNode(String name, List<String> parameters, boolean variadic, Function<HashMap<String, InterpreterDataType>, String> functionDefinition) {
         super(name, parameters, Optional.empty(), variadic);
-        this.variadic = variadic;
         this.execute = functionDefinition;
     }
 

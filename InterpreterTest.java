@@ -155,27 +155,27 @@ public class InterpreterTest {
 
     @Test
     public void lengthTest() throws Exception {
-            Interpreter interpreter = new Interpreter(new Parser(new Lexer("BEGIN {FS=\",\"}{ print length($1) }").Lex()).parse(), "input.txt");
+        Interpreter interpreter = new Interpreter(new Parser(new Lexer("BEGIN {FS=\",\"}{ print length($1) }").Lex()).parse(), "input.txt");
 
     }
 
     @Test
     public void splitTest() throws Exception {
         OUT.reset();
-            Interpreter interpreter = new Interpreter(new Parser(new Lexer("{ split($0, array, \",\"); for (i in array) { printf \"%s \", array[i] } print \"\"; }").Lex()).parse(), "input.txt");
-            interpreter.interpretProgram();
-            String output = OUT.toString().replaceAll("\r", "");
-            assertEquals("AMeLIA 555-5553 \n" +
-                    "ANThoNY 555-3412 \n" +
-                    "BECKY 555-7685 \n" +
-                    "bilL 555-1675 \n" +
-                    "BROdeRIck 555-0542 \n" +
-                    "caMILlA 555-2912 \n" +
-                    "faBiUS 555-1234 \n" +
-                    "jUlIE 555-6699 \n" +
-                    "martIn 555-6480 \n" +
-                    "SamUEl 555-3430 \n" +
-                    "jEAN-Paul 555-2127 \n", output);
+        Interpreter interpreter = new Interpreter(new Parser(new Lexer("{ split($0, array, \",\"); for (i in array) { printf \"%s \", array[i] } print \"\"; }").Lex()).parse(), "input.txt");
+        interpreter.interpretProgram();
+        String output = OUT.toString().replaceAll("\r", "");
+        assertEquals("AMeLIA 555-5553 \n" +
+                "ANThoNY 555-3412 \n" +
+                "BECKY 555-7685 \n" +
+                "bilL 555-1675 \n" +
+                "BROdeRIck 555-0542 \n" +
+                "caMILlA 555-2912 \n" +
+                "faBiUS 555-1234 \n" +
+                "jUlIE 555-6699 \n" +
+                "martIn 555-6480 \n" +
+                "SamUEl 555-3430 \n" +
+                "jEAN-Paul 555-2127 \n", output);
 
     }
 
@@ -207,7 +207,7 @@ public class InterpreterTest {
 
     @Test
     public void toupperTest() throws Exception {
-            Interpreter interpreter = new Interpreter(new Parser(new Lexer("BEGIN {FS=\",\"}{ print toupper($1) }").Lex()).parse(), "input.txt");
+        Interpreter interpreter = new Interpreter(new Parser(new Lexer("BEGIN {FS=\",\"}{ print toupper($1) }").Lex()).parse(), "input.txt");
 
     }
 
